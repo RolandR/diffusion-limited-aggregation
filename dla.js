@@ -1,36 +1,105 @@
 
+
+
+
+var search = location.search.trim().substring(1);
+var settings = {};
+
+if(search){
+	
+	search = search.split('&');
+
+	for(var i = 0; i < search.length; i++){
+		if(search[i]){
+			search[i] = search[i].split('=');
+
+			settings[search[i][0]] = search[i][1];
+		}
+	}
+}
+
+
+
+var canvasContainer = document.getElementById("canvasContainer");
+
 var canvas = document.getElementById("renderCanvas");
 var context = canvas.getContext("2d");
 
-var height = 512;
-var width = 512;
+var scale = 0.5;
+
+if(settings.scale){
+	scale = settings.scale;
+}
+
+var height = ~~(canvasContainer.clientHeight*scale);
+var width = ~~(canvasContainer.clientWidth*scale);
 
 canvas.height = height;
 canvas.width = width;
+
+canvas.style.height = height/scale +"px";
+canvas.style.width = width/scale +"px";
 
 var world = new Uint8Array(height*width);
 
 // populate seed
 
-/*for(var i = 0; i < width; i++){
-	world[(height-1)*width+i] = 1;
+switch(settings.seed){
+	case "ground":
+		for(var i = 0; i < width; i++){
+			world[(height-1)*width+i] = 1;
+		}
+	break;
+	
+	case "sky":
+		for(var i = 0; i < width; i++){
+			world[i] = 1;
+		}
+	break;
+	
+	case "box":
+		for(var i = 0; i < width; i++){
+			world[(height-1)*width+i] = 1;
+		}
+
+		for(var i = 0; i < width; i++){
+			world[i] = 1;
+		}
+
+		for(var i = 0; i < height; i++){
+			world[i*width] = 1;
+		}
+
+		for(var i = 0; i < height; i++){
+			world[i*width+width-1] = 1;
+		}
+	break;
+	
+	case "random":
+		var seeds = 10;
+		
+		if(settings.randomSeeds){
+			seeds = settings.randomSeeds
+		}
+		
+		for(var i = 0; i < seeds; i++){
+			world[~~(Math.random()*height*width)] = 1;
+		}
+		
+	break;
+	
+	case "center":
+	default:
+		world[~~(height/2)*width+~~(width/2)] = 1;
+	break;
 }
-
-for(var i = 0; i < width; i++){
-	world[i] = 1;
-}
-
-for(var i = 0; i < height; i++){
-	world[i*width] = 1;
-}
-
-for(var i = 0; i < height; i++){
-	world[i*width+width-1] = 1;
-}*/
-
-world[~~(height/2)*width+~~(width/2)] = 1
 
 var walkerCount = 16000;
+
+if(settings.particles){
+	walkerCount = settings.particles;
+}
+
 
 var walkers = [];
 
@@ -84,7 +153,7 @@ function moveWalkers(){
 		}
 
 		if(touching){
-			hue = (++hue) % 256;
+			hue = (hue+1) % 256;
 			if(hue == 0){
 				hue++;
 			}
@@ -103,10 +172,10 @@ var data = imageData.data;
 function render(){
 	for(var i = 0; i < world.length; i++){
 		if(world[i] === 0){
-			data[i*4  ] = 250;
-			data[i*4+1] = 245;
-			data[i*4+2] = 230;
-			data[i*4+3] = 255;
+			/*data[i*4  ] = 0;
+			data[i*4+1] = 0;
+			data[i*4+2] = 0;*/
+			data[i*4+3] = 0;
 		} else {
 			var rgb = hueToRGB(world[i]/256);
 			data[i*4  ] = rgb[0];
@@ -128,16 +197,19 @@ function render(){
 }
 
 function step(){
-	var startTime = window.performance.now();
-	var i = 0;
-	while(true){
+	if(settings.realtime == "true"){
 		moveWalkers();
-		if(window.performance.now() - startTime > 15){
-			break;
-		} 
+	} else {
+		var startTime = window.performance.now();
+		var i = 0;
+		while(true){
+			moveWalkers();
+			if(window.performance.now() - startTime > 15){
+				break;
+			} 
+		}
 	}
 	render();
-	
 	if(walkers.length > 0){
 		requestAnimationFrame(step);
 	}
